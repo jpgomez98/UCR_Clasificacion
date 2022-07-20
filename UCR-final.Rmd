@@ -317,6 +317,8 @@ for (j in 1:length(itera)) {
   bagg[[j]] <- res_bagg
 }
 
+bagg
+
 ```
 
 
