@@ -203,29 +203,42 @@ cortes=createFolds(1:nrow(ucr),k=10) # con 10 cortes
 res2 = matrix(nrow = 10, ncol = 4)
 colnames(res2) = c("e","FP","FN","AUC")
 
+# validación parqa el modelo logistico:
+
 for(i in 1:10){
   train3 = ucr[-cortes[[i]],]
   test3 = ucr[cortes[[i]],]
-  
-  mod_arbol = rpart(admitido ~ ., method="class", data=train3,
-                  control = rpart.control(minsplit = 326,minbucket = 163,cp = 0.0005, maxdepth = 7))
   mod_log = glm(factor(admitido)~.,data = train,family = binomial)
-  # mod3 = rpart(cliente~., method = "class", data = train2)
   pre_log = predict(mod_log,newdata = test3, type = "response")>0.5
-  # pred1=predict(mod_log,newdata = test3, type = "class")
-  # pred5 = predict(mod3, newdata=test3,type="class")
   f5=eval(test3$admitido, as.numeric(pre_log))
   res2[i,] = f5$indicadores
 }
 
-curvaROC(y = test3$admitido,pred = pred1,grafico = T)
+# para el arbol de:
+res_cp = matrix(nrow = 10, ncol = 4)
+colnames(res_arb) = c("e","FP","FN","AUC")
+res_abr <- list()
+itera <- c(0.0001, 0.001, 0.01, 0.1, 1)
 
-predict = prediction(as.numeric(pred1),test3$admitido) 
-  auc = attributes(performance(predict,"auc"))$y.values[[1]]*100
-  des = performance(predict,"tpr","fpr")
+for (j in 1:length(itera)) {
+  for(i in 1:10){
+    train3 = ucr[-cortes[[i]],]
+    test3 = ucr[cortes[[i]],]
   
-attributes(performance(pred1,"auc"))$y.values[[1]]*100
+ 
+    mod_arbol = rpart(admitido ~ ., method="class", data=train3,
+                  control = rpart.control(minsplit = 326,minbucket = 163,cp = itera[j], maxdepth = 7))
+  
+    pred1=predict(mod_arbol,newdata = test3, type = "class")
+    f5=eval(test3$admitido, as.numeric(pred1))
+    res_cp[i,] = f5$indicadores
+    
+  }
+  res_abr[[j]] <- res_cp
+}
 
+
+res_abr
 ```
 
 
