@@ -4,3 +4,174 @@ author: "Jose Pablo Gómez Mata"
 date: "7/19/2022"
 output: html_document
 ---
+
+
+```{r}
+library(readxl)
+library(tidyverse)
+library(cluster)
+library(vegan)
+suppressMessages(library(caret))
+suppressMessages(library(DT))
+suppressMessages(library(ROCR))
+suppressMessages(library(class))
+suppressMessages(library(kknn))
+suppressMessages(library(e1071))
+suppressMessages(library(plotly))
+suppressMessages(library(adabag))
+suppressMessages(library(randomForest))
+library(modeest)
+library(ISLR)
+library(caret)
+library(class)
+library(arules)
+library(cluster)
+library(vegan)
+suppressMessages(library(caret))
+suppressMessages(library(DT))
+suppressMessages(library(ROCR))
+suppressMessages(library(class))
+suppressMessages(library(kknn))
+suppressMessages(library(e1071))
+suppressMessages(library(plotly))
+suppressMessages(library(adabag))
+suppressMessages(library(randomForest))
+
+library(ISLR)
+library(caret)
+library(class)
+library(neuralnet)
+```
+
+# Base
+```{r}
+ucr <- read.csv("ucr.csv")
+ucr$colegio <- factor(ucr$colegio)
+ucr$provincia <- factor(ucr$provincia)
+ucr$canton <- factor(ucr$canton)
+ucr$distrito <- factor(ucr$distrito)
+ucr$tipo_colegio <- factor(ucr$tipo_colegio)
+ucr$tipo_horario <- factor(ucr$tipo_horario)
+ucr$tipo_modalidad <- factor(ucr$tipo_modalidad)
+ucr$codigo_zona_procedencia <- factor(ucr$codigo_zona_procedencia)
+ucr$rama_mep <- factor(ucr$rama_mep)
+ucr$rama1_mep <- factor(ucr$rama1_mep)
+ucr$in0vacion_mep <- factor(ucr$in0vacion_mep)
+ucr$v_agregado_mep <- factor(ucr$v_agregado_mep)
+ucr$ambiental_mep <- factor(ucr$ambiental_mep)
+ucr$o_tecnolog_mep <- factor(ucr$o_tecnolog_mep)
+ucr$modeloiiicicloydiversificado_mep <- factor(ucr$modeloiiicicloydiversificado_mep)
+ucr$deportivo_mep <- factor(ucr$deportivo_mep)
+ucr$telesecundaria_mep <- factor(ucr$telesecundaria_mep)
+ucr$liceo_rural_mep <- factor(ucr$liceo_rural_mep)
+ucr$tipo_educa <- factor(ucr$tipo_educa)
+ucr$indigena_mep <- factor(ucr$indigena_mep)
+ucr$territorio_indig_mep <- factor(ucr$territorio_indig_mep)
+ucr$lengua_indig_mep <- factor(ucr$lengua_indig_mep)
+ucr$bilingue_mep <- factor(ucr$bilingue_mep)
+ucr$bach_internacional_mep <- factor(ucr$bach_internacional_mep)
+ucr$admitido <- factor(ucr$admitido)
+levels(ucr$admitido) <- c("no admitido","admitido")
+ucr <- ucr[,-c(1:4)]
+str(ucr)
+
+# train y test
+
+RNGkind(sample.kind = "Rounding")
+set.seed(10)
+
+n=nrow(ucr)
+s=sample(1:n,round(0.8*n))
+train=ucr[s,]
+test=ucr[-s,]
+
+```
+
+
+# modelos
+```{r}
+# arbol:
+mod_arbol = rpart(admitido ~ ., method="class", data=train,
+                  control = rpart.control(minsplit = 326,minbucket = 163,cp = 0.0005, maxdepth = 7))
+
+fancyRpartPlot(mod_arbol , palettes=c("Greens", "Reds"))
+# plot(mod_arbol)
+pred1=predict(mod_arbol,newdata = test, type = "class")
+
+table(test$admitido,pred1)
+
+# bagging
+library(adabag)
+
+mod_bagg=bagging(admitido~., method="class", 
+                 control = rpart.control(minsplit = 326,minbucket = 163,cp = 0.0005, maxdepth = 7),
+                 data = ucr, mfinal = 19)
+
+
+pred_bagg = predict(mod_bagg,ucr)$class
+
+table(ucr$admitido,pred_bagg)
+
+
+# random forest
+
+library(randomForest)
+
+mod_RF = randomForest(admitido~.,method="class",data = train, ntree=99) # numero impar por el empate en dentro de los arboles
+pred_RF = predict(mod_RF, test)
+
+table(test$admitido,pred_RF)
+
+
+# boosting
+library(adabag)
+
+mod_boos <- boosting(admitido~.,data = train, boos = T, mfinal = 50)
+pred_boos <- predict(mod_boos,test) #me da prob
+clase_boo <- pboos$class #Aca me da clase
+
+table(test$admitido,clase_boo)
+
+# logisticos
+
+mod_log = glm(factor(admitido)~.,data = train,family = binomial)
+
+pre_log = predict(mod_log,newdata = test, type = "response")>0.5
+
+table(test$admitido,pre_log)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
