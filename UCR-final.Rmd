@@ -3,6 +3,8 @@ title: "UCR proyecto final"
 author: "Jose Pablo Gómez Mata"
 date: "7/19/2022"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 
@@ -22,25 +24,13 @@ suppressMessages(library(adabag))
 suppressMessages(library(randomForest))
 library(modeest)
 library(ISLR)
-library(caret)
-library(class)
 library(arules)
 library(cluster)
-library(vegan)
-suppressMessages(library(caret))
-suppressMessages(library(DT))
-suppressMessages(library(ROCR))
-suppressMessages(library(class))
-suppressMessages(library(kknn))
-suppressMessages(library(e1071))
-suppressMessages(library(plotly))
-suppressMessages(library(adabag))
-suppressMessages(library(randomForest))
-
-library(ISLR)
-library(caret)
-library(class)
 library(neuralnet)
+library(shipunov)
+library(StatMatch)
+library(rattle)
+library(modeest)
 ```
 
 # Base
@@ -54,7 +44,6 @@ ucr$tipo_colegio <- factor(ucr$tipo_colegio)
 ucr$tipo_horario <- factor(ucr$tipo_horario)
 ucr$tipo_modalidad <- factor(ucr$tipo_modalidad)
 ucr$codigo_zona_procedencia <- factor(ucr$codigo_zona_procedencia)
-ucr$rama_mep <- factor(ucr$rama_mep)
 ucr$rama1_mep <- factor(ucr$rama1_mep)
 ucr$in0vacion_mep <- factor(ucr$in0vacion_mep)
 ucr$v_agregado_mep <- factor(ucr$v_agregado_mep)
@@ -71,7 +60,7 @@ ucr$lengua_indig_mep <- factor(ucr$lengua_indig_mep)
 ucr$bilingue_mep <- factor(ucr$bilingue_mep)
 ucr$bach_internacional_mep <- factor(ucr$bach_internacional_mep)
 ucr$admitido <- factor(ucr$admitido)
-levels(ucr$admitido) <- c("no admitido","admitido")
+levels(ucr$admitido) <- c("admitido","no admitido")
 ucr <- ucr[,-c(1:4)]
 str(ucr)
 
@@ -85,6 +74,67 @@ s=sample(1:n,round(0.8*n))
 train=ucr[s,]
 test=ucr[-s,]
 
+```
+
+#funciones
+```{r}
+# Funcion para generar el grafico y calculo de AUC
+curvaROC = function(pred,y, grafico = F) {
+  predict = prediction(pred,y) 
+  auc = attributes(performance(predict,"auc"))$y.values[[1]]*100
+  des = performance(predict,"tpr","fpr")
+  p = NULL
+  if(grafico){
+    FP = attributes(des)$x.values[[1]]*100
+    PP = attributes(des)$y.values[[1]]*100
+    p <- plot_ly(x = FP, y = FP, name = 'Línea No Discrimina', 
+                 type = 'scatter', mode = 'lines',
+                 line = list(color = 'rgba(0, 0, 0, 1)', 
+                             width = 4, dash = 'dot'),
+                 fill = 'tozeroy',  fillcolor = 'rgba(0, 0, 0, 0)') %>% 
+      add_trace(y = PP, name = paste('Curva ROC (AUC = ', round(auc,3),')', sep =""), 
+                line = list(color = 'rgba(0, 0, 255, 1)', width = 4, 
+                dash = 'line'),  fillcolor = 'rgba(0, 0, 255, 0.2)')%>%
+      layout(title = "Curva ROC",
+             xaxis = list(title = "<b>Falsos Positivos (%)<b>"),
+             yaxis = list (title = "<b>Precisión Positiva (%)<b>"))
+  }
+  return(list(auc = auc,grafico = p))
+}
+
+# eval
+eval = function(y,pred){
+  confu=table(y,pred)
+  e = 1-sum(diag(confu))/sum(confu)
+  falsos = 1-diag(confu)/apply(confu, 1, sum)
+  error = c(e,falsos)*100
+  roc_object <- roc(y, as.numeric(pred))
+  auc <- auc(roc_object)[1]
+  indicadores = c(error,auc)
+  names(indicadores)=c("e","FP","FN","AUC")
+  return(list(Matriz=confu,indicadores=indicadores))
+  
+}
+
+# knn con dist de gower
+knngow <- function (train,test,k) 
+  {#require(StatMatch)
+ p=dim(train)[2]
+ ntest=dim(test)[1]
+ ntrain=dim(train)[1]
+ classes=rep(0,ntest)
+ if(ntest==ntrain)
+{     for(i in 1:ntest)
+     { tempo=order(gower.dist(test[i,-p],train[-i,-p]))[1:k]
+       classes[i]=mlv(train[tempo,p])[1]}
+ }
+     else{
+  for(i in 1:ntest)
+{ tempo=order(StatMatch::gower.dist(test[i,-p],train[,-p]))[1:k] 
+classes[i]=mlv(train[tempo,p])[1]}
+}
+classes
+}
 ```
 
 
@@ -126,9 +176,9 @@ table(test$admitido,pred_RF)
 # boosting
 library(adabag)
 
-mod_boos <- boosting(admitido~.,data = train, boos = T, mfinal = 50)
+mod_boos <- boosting(admitido~.,data = train, boos = T, mfinal = 5)
 pred_boos <- predict(mod_boos,test) #me da prob
-clase_boo <- pboos$class #Aca me da clase
+clase_boo <- pred_boos$class #Aca me da clase
 
 table(test$admitido,clase_boo)
 
@@ -139,11 +189,44 @@ mod_log = glm(factor(admitido)~.,data = train,family = binomial)
 pre_log = predict(mod_log,newdata = test, type = "response")>0.5
 
 table(test$admitido,pre_log)
+
+# knn
+mod_knn <- knngow(train = train, test = test, k = 5)
+
+table(test$admitido,mod_knn)
 ```
 
+# validacion cruzada
 
+```{r}
+cortes=createFolds(1:nrow(ucr),k=10) # con 10 cortes
+res2 = matrix(nrow = 10, ncol = 4)
+colnames(res2) = c("e","FP","FN","AUC")
 
+for(i in 1:10){
+  train3 = ucr[-cortes[[i]],]
+  test3 = ucr[cortes[[i]],]
+  
+  mod_arbol = rpart(admitido ~ ., method="class", data=train3,
+                  control = rpart.control(minsplit = 326,minbucket = 163,cp = 0.0005, maxdepth = 7))
+  mod_log = glm(factor(admitido)~.,data = train,family = binomial)
+  # mod3 = rpart(cliente~., method = "class", data = train2)
+  pre_log = predict(mod_log,newdata = test3, type = "response")>0.5
+  # pred1=predict(mod_log,newdata = test3, type = "class")
+  # pred5 = predict(mod3, newdata=test3,type="class")
+  f5=eval(test3$admitido, as.numeric(pre_log))
+  res2[i,] = f5$indicadores
+}
 
+curvaROC(y = test3$admitido,pred = pred1,grafico = T)
+
+predict = prediction(as.numeric(pred1),test3$admitido) 
+  auc = attributes(performance(predict,"auc"))$y.values[[1]]*100
+  des = performance(predict,"tpr","fpr")
+  
+attributes(performance(pred1,"auc"))$y.values[[1]]*100
+
+```
 
 
 

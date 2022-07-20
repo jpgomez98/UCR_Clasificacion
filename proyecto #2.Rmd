@@ -251,7 +251,7 @@ library(adabag)
 
 mod_boos <- boosting(admitido~.,data = train, boos = T, mfinal = 50)
 pred_boos <- predict(mod_boos,test) #me da prob
-clase_boo <- pboos$class #Aca me da clase
+clase_boo <- pred_boos$class #Aca me da clase
 
 table(test$admitido,clase_boo)
 
