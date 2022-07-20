@@ -1,0 +1,503 @@
+---
+title: "Admisión UCR"
+author: "Jose Pablo Gómez Mata"
+date: "7/15/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+https://www.rdocumentation.org/packages/arules/versions/1.7-3/topics/dissimilarity 
+```{r}
+library(readxl)
+library(tidyverse)
+library(cluster)
+library(vegan)
+suppressMessages(library(caret))
+suppressMessages(library(DT))
+suppressMessages(library(ROCR))
+suppressMessages(library(class))
+suppressMessages(library(kknn))
+suppressMessages(library(e1071))
+suppressMessages(library(plotly))
+suppressMessages(library(adabag))
+suppressMessages(library(randomForest))
+library(modeest)
+library(ISLR)
+library(caret)
+library(class)
+library(arules)
+library(cluster)
+library(vegan)
+suppressMessages(library(caret))
+suppressMessages(library(DT))
+suppressMessages(library(ROCR))
+suppressMessages(library(class))
+suppressMessages(library(kknn))
+suppressMessages(library(e1071))
+suppressMessages(library(plotly))
+suppressMessages(library(adabag))
+suppressMessages(library(randomForest))
+
+library(ISLR)
+library(caret)
+library(class)
+library(neuralnet)
+```
+
+# carga y arreglo de base
+Me tiene que quedar una base de 32.587 observaciones
+
+```{r}
+
+base <- read_excel("BASE DE TRABAJO PARA MULTIVARIADO 9-05-2022.xlsx")
+n=nrow(base)
+s=sample(1:n,round(0.8*n))
+
+train=base[s,]
+test=base[-s,]
+
+
+
+str(base)
+base = base[,c(2:3,)]
+
+mod_log <- glm(cbind(admitidos,no_admitido)~.,data = base,family = binomial)
+pred_log <- predict(mod_log,type = "response")>0.5
+contrasts(base$tipo_educa)
+table(base$admitidos,pred_log)
+
+drop1(mod_log,test = "LRT")
+table(pred_log)
+summary(mod_log)
+
+# aqui desagrego la base de datos
+base1 <- base %>% untable(num = base$realizan_paa)
+base1 <- data.frame(base1)
+
+table(base$cientifico_mep,base$bilingue_mep)
+table(base$humanista_mep,base$bilingue_mep)
+
+table(base$humanista_mep,base$cientifico_mep)
+# creo las variables 1 y 0 para las personas respectivamente
+
+a <- base$realizan_paa # los que realizan la prueba
+b <- base$admitidos # los admitidos
+v <- c()
+f <- list()
+
+for (j in 1:853) {
+  
+ x <- b[j]
+ v <- c()
+ for (i in 1:a[j]) {
+  # print(x)
+  v[i] <- ifelse(x>0,1,0)
+  x <- x-1
+
+ }
+  # print(v)
+  f[[j]] <- v 
+ 
+}
+
+admitidos <- unlist(f)
+
+# verifico la dimension de las variables con las de la base 
+length(admitidos)
+nrow(base1)
+
+# write.csv(admitidos,file = "respuesta.csv",row.names = F)
+
+# añadimos la variable respuesta bien definida
+base1$admitido = admitidos
+names(base1)
+
+ucr <- base1[,c(1:26,34)]
+ucr <- ucr[,-5]
+str(ucr)
+
+base$colegio <- factor(base$colegio)
+base$provincia <- factor(base$provincia)
+base$canton <- factor(base$canton)
+base$distrito <- factor(base$distrito)
+base$tipo_colegio <- factor(base$tipo_colegio)
+base$tipo_horario <- factor(base$tipo_horario)
+base$tipo_modalidad <- factor(base$tipo_modalidad)
+base$codigo_zona_procedencia <- factor(base$codigo_zona_procedencia)
+base$rama_mep <- factor(base$rama_mep)
+base$rama1_mep <- factor(base$rama1_mep)
+base$innovacion_mep <- factor(base$innovacion_mep)
+base$v_agregado_mep <- factor(base$v_agregado_mep)
+base$ambiental_mep <- factor(base$ambiental_mep)
+base$o_tecnolog_mep <- factor(base$o_tecnolog_mep)
+base$modeloiiicicloydiversificado_mep <- factor(base$modeloiiicicloydiversificado_mep)
+base$deportivo_mep <- factor(base$deportivo_mep)
+base$telesecundaria_mep <- factor(base$telesecundaria_mep)
+base$liceo_rural_mep <- factor(base$liceo_rural_mep)
+base$tipo_educa <- factor(base$tipo_educa)
+base$indigena_mep <- factor(base$indigena_mep)
+base$territorio_indig_mep <- factor(base$territorio_indig_mep)
+base$lengua_indig_mep <- factor(base$lengua_indig_mep)
+base$bilingue_mep <- factor(base$bilingue_mep)
+base$bach_internacional_mep <- factor(base$bach_internacional_mep)
+# base$admitido <- factor(base$admitido)
+# levels(base$admitido) <- c("no admitido","admitido")
+
+save(ucr,file = "ucr.Rdata")
+
+ucr <- ucr[,-1]
+str(ucr)
+
+```
+
+
+```{r}
+ucr <- read.csv("ucr.csv")
+# 
+# # write.csv(ucr,file = "ucr.csv",row.names = F)
+# 
+# suppressMessages(library(rpart))
+# suppressMessages(library(rattle))
+# suppressMessages(library(DT))
+# suppressMessages(library(adabag))
+# suppressMessages(library(randomForest))
+# 
+# ucr <- ucr[,-1]
+suppressMessages(library(rpart))
+suppressMessages(library(rattle))
+suppressMessages(library(DT))
+suppressMessages(library(adabag))
+suppressMessages(library(randomForest))
+
+table(ucr$territorio_indig_mep)
+
+RNGkind(sample.kind = "Rounding")
+set.seed(10)
+
+
+
+
+ucr$colegio <- factor(ucr$colegio)
+ucr$provincia <- factor(ucr$provincia)
+ucr$canton <- factor(ucr$canton)
+ucr$distrito <- factor(ucr$distrito)
+ucr$tipo_colegio <- factor(ucr$tipo_colegio)
+ucr$tipo_horario <- factor(ucr$tipo_horario)
+ucr$tipo_modalidad <- factor(ucr$tipo_modalidad)
+ucr$codigo_zona_procedencia <- factor(ucr$codigo_zona_procedencia)
+ucr$rama_mep <- factor(ucr$rama_mep)
+ucr$rama1_mep <- factor(ucr$rama1_mep)
+ucr$in0vacion_mep <- factor(ucr$in0vacion_mep)
+ucr$v_agregado_mep <- factor(ucr$v_agregado_mep)
+ucr$ambiental_mep <- factor(ucr$ambiental_mep)
+ucr$o_tecnolog_mep <- factor(ucr$o_tecnolog_mep)
+ucr$modeloiiicicloydiversificado_mep <- factor(ucr$modeloiiicicloydiversificado_mep)
+ucr$deportivo_mep <- factor(ucr$deportivo_mep)
+ucr$telesecundaria_mep <- factor(ucr$telesecundaria_mep)
+ucr$liceo_rural_mep <- factor(ucr$liceo_rural_mep)
+ucr$tipo_educa <- factor(ucr$tipo_educa)
+ucr$indigena_mep <- factor(ucr$indigena_mep)
+ucr$territorio_indig_mep <- factor(ucr$territorio_indig_mep)
+ucr$lengua_indig_mep <- factor(ucr$lengua_indig_mep)
+ucr$bilingue_mep <- factor(ucr$bilingue_mep)
+ucr$bach_internacional_mep <- factor(ucr$bach_internacional_mep)
+ucr$admitido <- factor(ucr$admitido)
+levels(ucr$admitido) <- c("no admitido","admitido")
+
+ucr <- ucr[,-c(1:4)]
+
+str(ucr)
+
+n=nrow(ucr)
+s=sample(1:n,round(0.8*n))
+train=ucr[s,]
+test=ucr[-s,]
+
+# arbol:
+mod_arbol = rpart(admitido ~ ., method="class", data=train,
+                  control = rpart.control(minsplit = 326,minbucket = 163,cp = 0.0005, maxdepth = 7))
+
+fancyRpartPlot(mod_arbol , palettes=c("Greens", "Reds"))
+# plot(mod_arbol)
+pred1=predict(mod_arbol,newdata = test, type = "class")
+
+table(test$admitido,pred1)
+
+# bagging
+library(adabag)
+
+mod_bagg=bagging(admitido~., method="class", 
+                 control = rpart.control(minsplit = 326,minbucket = 163,cp = 0.0005, maxdepth = 7),
+                 data = ucr, mfinal = 19)
+
+
+pred_bagg = predict(mod_bagg,ucr)$class
+
+table(ucr$admitido,pred_bagg)
+
+
+# random forest
+
+library(randomForest)
+
+mod_RF = randomForest(admitido~.,method="class",data = train, ntree=99) # numero impar por el empate en dentro de los arboles
+pred_RF = predict(mod_RF, test)
+
+table(test$admitido,pred_RF)
+
+
+# boosting
+library(adabag)
+
+mod_boos <- boosting(admitido~.,data = train, boos = T, mfinal = 50)
+pred_boos <- predict(mod_boos,test) #me da prob
+clase_boo <- pboos$class #Aca me da clase
+
+table(test$admitido,clase_boo)
+
+# logisticos
+
+mod_log = glm(factor(admitido)~.,data = train,family = binomial)
+
+pre_log = predict(mod_log,newdata = test, type = "response")>0.5
+
+table(test$admitido,pre_log)
+
+# knn
+
+
+```
+
+
+```{r}
+ucr <- read.csv("ucr.csv")
+str(ucr)
+
+# ucr$colegio <- as.numeric(ucr$colegio)
+# ucr$provincia <- as.numeric(ucr$provincia)
+# ucr$canton <- as.numeric(ucr$canton)
+# ucr$distrito <- as.numeric(ucr$distrito)
+# ucr$tipo_colegio <- as.numeric(ucr$tipo_colegio)
+# ucr$tipo_horario <- as.numeric(ucr$tipo_horario)
+# ucr$tipo_modalidad <- as.numeric(ucr$tipo_modalidad)
+# ucr$codigo_zona_procedencia <- as.numeric(ucr$codigo_zona_procedencia)
+# ucr$rama_mep <- as.numeric(ucr$rama_mep)
+# ucr$rama1_mep <- as.numeric(ucr$rama1_mep)
+# ucr$in0vacion_mep <- as.numeric(ucr$in0vacion_mep)
+# ucr$v_agregado_mep <- as.numeric(ucr$v_agregado_mep)
+# ucr$ambiental_mep <- as.numeric(ucr$ambiental_mep)
+# ucr$o_tecnolog_mep <- as.numeric(ucr$o_tecnolog_mep)
+# ucr$modeloiiicicloydiversificado_mep <- as.numeric(ucr$modeloiiicicloydiversificado_mep)
+# ucr$deportivo_mep <- as.numeric(ucr$deportivo_mep)
+# ucr$telesecundaria_mep <- as.numeric(ucr$telesecundaria_mep)
+# ucr$liceo_rural_mep <- as.numeric(ucr$liceo_rural_mep)
+# ucr$cientifico_mep <- as.numeric(ucr$cientifico_mep)
+# ucr$humanista_mep <- as.numeric(ucr$humanista_mep)
+# ucr$indigena_mep <- as.numeric(ucr$indigena_mep)
+# ucr$territorio_indig_mep <- as.numeric(ucr$territorio_indig_mep)
+# ucr$lengua_indig_mep <- as.numeric(ucr$lengua_indig_mep)
+# ucr$bilingue_mep <- as.numeric(ucr$bilingue_mep)
+# ucr$bach_internacional_mep <- as.numeric(ucr$bach_internacional_mep)
+# ucr$admitido <- factor(ucr$admitido)
+# levels(ucr$admitido) <- c("admitido","no admitido")
+
+contrasts(ucr$admitido)
+# ucr <- ucr[,-c(1,21:22)]
+str(ucr)
+
+# ejemplo con diferentes distancias!!!!!
+library(vegan)
+library(arules)
+
+
+x <- c(1,1,1,1,1,2,2,2)
+y <- c(1,2,2,2,1,1,1,2)
+z <- c(1,2,1,2,2,2,1,1)
+g <- data.frame(x,y,z)
+dist <- vegdist(g,method = "jaccard")
+dist
+
+x <- c(1,1,1,1,1,0,0,0)
+y <- c(1,0,0,0,1,1,1,0)
+z <- c(1,0,1,0,0,0,1,1)
+g <- data.frame(x,y,z)
+str(g)
+diss <- dissimilarity(as.matrix(g),method = "dice")
+diss
+plot(hclust(diss,method = "ward.D"))
+```
+
+
+```{r}
+ucr <- read.csv("ucr.csv")
+ucr$tipo_horario <- as.numeric(ucr$tipo_horario)
+ucr$in0vacion_mep <- as.numeric(ucr$in0vacion_mep)
+ucr$v_agregado_mep <- as.numeric(ucr$v_agregado_mep)
+ucr$ambiental_mep <- as.numeric(ucr$ambiental_mep)
+ucr$o_tecnolog_mep <- as.numeric(ucr$o_tecnolog_mep)
+ucr$modeloiiicicloydiversificado_mep <- as.numeric(ucr$modeloiiicicloydiversificado_mep)
+ucr$deportivo_mep <- as.numeric(ucr$deportivo_mep)
+ucr$telesecundaria_mep <- as.numeric(ucr$telesecundaria_mep)
+ucr$liceo_rural_mep <- as.numeric(ucr$liceo_rural_mep)
+ucr$cientifico_mep <- as.numeric(ucr$cientifico_mep)
+ucr$humanista_mep <- as.numeric(ucr$humanista_mep)
+ucr$indigena_mep <- as.numeric(ucr$indigena_mep)
+ucr$bilingue_mep <- as.numeric(ucr$bilingue_mep)
+ucr$bach_internacional_mep <- as.numeric(ucr$bach_internacional_mep)
+ucr$admitido <- factor(ucr$admitido)
+levels(ucr$admitido) <- c("admitido","no admitido")
+
+df <- ucr[,c(6,10:20,23:25)]
+str(df)
+
+# s=sample(1:2500,replace = F)
+# df <- df[s,]
+# creo la base de train y test
+RNGkind(sample.kind = "Rounding")
+set.seed(10)
+
+n=nrow(df)
+s=sample(1:n,round(0.8*n))
+
+# creo test y train con las variables binarias de interes
+train=df[s,]
+test=df[-s,]
+
+base_knn <- rbind(train,test)
+
+# esto era para la base enoooorme
+dist_dice <- as.matrix(dissimilarity(as.matrix(base_knn[,-15]),method = "dice"))[26071:32587,1:26070]# saco la matriz de distancias sin la variable respuesta y tomo los 6517 valores de los datos de validacion
+dist_jacc <- as.matrix(dissimilarity(as.matrix(base_knn[,-15]),method = "jaccard"))[26071:32587,1:26070]# saco la matriz de distancias sin la variable respuesta y tomo los 6517 valores de los datos de validacion
+dist_sokymich <- as.matrix(dissimilarity(as.matrix(base_knn[,-15]),method = "matching"))[26071:32587,1:26070]# saco la matriz de distancias sin la variable respuesta y tomo los 6517 valores de los datos de validacion
+
+orden <- sort(dist_dice[6,])[1:7]# los k=7 vecinos mas cercanos para el primer individuo de validacion
+posiciones <- as.numeric(names(orden)) # tomo el "id" de los 3 vecinos mas cercanos al primer individuo
+clasif_knn <- df$admitido[posiciones] # me fijo en la base total, como estan clasificados esos 3 individuos
+
+pred_knn <- mlv(clasif_knn, methd = "mfv")
+pred_knn
+
+test$admitido[6]
+
+# as.matrix(dissimilarity(as.matrix(rbind(train[,-15],test[1,-15])),method = "dice"))[26071,-26071]
+
+# con la distancia de Dice-Sorensen
+pred_dice=c()
+
+for(i in 1:nrow(test)){
+ # d=as.matrix(dist(rbind(train[,-15],test[i,-15])))[51,-51]
+ dist_dice <- as.matrix(dissimilarity(as.matrix(rbind(train[,-15],test[i,-15])),method = "dice"))[2001,-2001]
+ o=order(dist_dice)
+ clas=train[o,][1:3,1]
+ tab=table(clas)
+ pred_dice[i]= names(tab)[which(tab==max(tab))]
+}
+pred_dice
+table(test$admitido,pred_dice)
+
+# con la distancia de Jaccard Sokal y michener
+pred_sokymich=c()
+
+for(i in 1:nrow(test)){
+ # d=as.matrix(dist(rbind(train[,-15],test[i,-15])))[51,-51]
+ dist_sokymich <- as.matrix(dissimilarity(as.matrix(rbind(train[,-15],test[i,-15])),method = "matching"))[2001,-2001]
+ o=order(dist_sokymich)
+ clas=train[o,][1:3,1]
+ tab=table(clas)
+ pred_sokymich[i]= names(tab)[which(tab==max(tab))]
+}
+pred_sokymich
+table(test$admitido,pred_sokymich)
+
+
+
+# con la distancia de affinidad (Aggarwal)
+
+pred_aff <- c()
+for(i in 1:200){
+ # d=as.matrix(dist(rbind(train[,-15],test[i,-15])))[51,-51]
+ dist_aff <- as.matrix(dissimilarity(as.matrix(rbind(train[,-15],test[i,-15])),method = "affinity"))[2001,-2001]
+ o=order(dist_aff)
+ clas=train[o,][1:3,1]
+ tab=table(clas)
+ pred_aff[i]= names(tab)[which(tab==max(tab))]
+}
+pred_aff
+table(test$admitido[1:200],pred_aff)
+
+```
+
+
+# modelos
+
+```{r}
+# logistico
+
+# RNGkind(sample.kind = "Rounding")
+# set.seed(10)
+# 
+# n=nrow(ucr)
+# s=sample(1:n,round(0.8*n))
+# 
+# train=ucr[s,]
+# test=ucr[-s,]
+
+
+
+contrasts(ucr$admitido)
+
+
+# arbol:
+
+# ucr$colegio <- factor(ucr$colegio)
+# ucr$provincia <- factor(ucr$provincia)
+# ucr$canton <- factor(ucr$canton)
+# ucr$distrito <- factor(ucr$distrito)
+# ucr$tipo_colegio <- factor(ucr$tipo_colegio)
+# ucr$tipo_horario <- factor(ucr$tipo_horario)
+# ucr$tipo_modalidad <- factor(ucr$tipo_modalidad)
+# ucr$codigo_zona_procedencia <- factor(ucr$codigo_zona_procedencia)
+# ucr$rama_mep <- factor(ucr$rama_mep)
+# ucr$rama1_mep <- factor(ucr$rama1_mep)
+# ucr$in0vacion_mep <- factor(ucr$in0vacion_mep)
+# ucr$v_agregado_mep <- factor(ucr$v_agregado_mep)
+# ucr$ambiental_mep <- factor(ucr$ambiental_mep)
+# ucr$o_tecnolog_mep <- factor(ucr$o_tecnolog_mep)
+# ucr$modeloiiicicloydiversificado_mep <- factor(ucr$modeloiiicicloydiversificado_mep)
+# ucr$deportivo_mep <- factor(ucr$deportivo_mep)
+# ucr$telesecundaria_mep <- factor(ucr$telesecundaria_mep)
+# ucr$liceo_rural_mep <- factor(ucr$liceo_rural_mep)
+# ucr$cientifico_mep <- factor(ucr$cientifico_mep)
+# ucr$humanista_mep <- factor(ucr$humanista_mep)
+# ucr$indigena_mep <- factor(ucr$indigena_mep)
+# ucr$territorio_indig_mep <- factor(ucr$territorio_indig_mep)
+# ucr$lengua_indig_mep <- factor(ucr$lengua_indig_mep)
+# ucr$bilingue_mep <- factor(ucr$bilingue_mep)
+# ucr$bach_internacional_mep <- factor(ucr$bach_internacional_mep)
+# ucr$admitido <- factor(ucr$admitido)
+# levels(ucr$admitido) <- c("no admitido","admitido")
+# str(ucr)
+# 
+# n=nrow(ucr)
+# s=sample(1:n,round(0.8*n))
+# 
+# train=ucr[s,]
+# test=ucr[-s,]
+
+
+# otro modelo:
+
+
+# n=nrow(df)
+# s=sample(1:n,round(0.8*n))
+# 
+# train=df[s,]
+# test=df[-s,]
+
+
+
+```
+
+
+
+
