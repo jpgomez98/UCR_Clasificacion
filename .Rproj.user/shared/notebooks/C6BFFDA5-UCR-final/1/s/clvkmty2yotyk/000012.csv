@@ -1,0 +1,24 @@
+"0","mod_arbol = rpart(admitido ~ ., method=""class"", data=train,
+                  control = rpart.control(minsplit = 326,minbucket = 163,cp = 0.0005, maxdepth = 7))
+
+fancyRpartPlot(mod_arbol , palettes=c(""Greens"", ""Reds""))
+# plot(mod_arbol)
+pred1=predict(mod_arbol,newdata = test, type = ""class"")
+
+table(test$admitido,pred1)
+"
+"1","   pred1
+"
+"1","   "
+"1","    1"
+"1","    0"
+"1","
+  1"
+"1","  101"
+"1"," 1163"
+"1","
+  0"
+"1","   55"
+"1"," 5198"
+"1","
+"

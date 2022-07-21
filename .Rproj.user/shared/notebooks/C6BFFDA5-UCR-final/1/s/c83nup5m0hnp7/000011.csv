@@ -1,0 +1,30 @@
+"0","library(rattle)
+"
+"2","Loading required package: bitops
+"
+"2","
+Attaching package: ‘bitops’
+
+"
+"2","The following object is masked from ‘package:Matrix’:
+
+    %&%
+
+"
+"2","Registered S3 method overwritten by 'rattle':
+  method         from  
+  predict.kmeans statip
+"
+"2","Rattle: A free graphical interface for data science with R.
+Versión 5.5.1 Copyright (c) 2006-2021 Togaware Pty Ltd.
+Escriba 'rattle()' para agitar, sacudir y  rotar sus datos.
+"
+"2","
+Attaching package: ‘rattle’
+
+"
+"2","The following object is masked from ‘package:randomForest’:
+
+    importance
+
+"
